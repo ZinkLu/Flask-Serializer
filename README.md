@@ -1,4 +1,4 @@
-# Flask-Schema
+# Flask-Serializer
 
 一个帮助你快速书写Restful的序列化器工具
 
