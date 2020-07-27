@@ -5,8 +5,8 @@ from marshmallow import pre_load, post_load, validates_schema
 from marshmallow.exceptions import ValidationError
 from sqlalchemy import and_, func, true
 
-from flask_schema.mixins import _MixinBase
-from flask_schema.utils.empty import Empty
+from flask_serializer.mixins import _MixinBase
+from flask_serializer.utils.empty import Empty
 
 
 class PreLoadListMixin:

@@ -7,9 +7,9 @@
 from marshmallow import fields
 from sqlalchemy.sql.operators import eq
 
-from flask_schema.func_field.filter import Filter
-from flask_schema.func_field.foreign import Foreign
-from flask_schema.mixins.details import DetailMixIn
+from flask_serializer.func_field.filter import Filter
+from flask_serializer.func_field.foreign import Foreign
+from flask_serializer.mixins.details import DetailMixIn
 from test.test_app import fs, session
 from test.test_models import Status, OrderLine, Product, Order
 

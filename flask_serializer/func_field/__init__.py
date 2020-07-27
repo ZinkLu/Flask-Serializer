@@ -1,4 +1,4 @@
-from flask_schema.cache_object.cached import CachedModel, CachedField
+from flask_serializer.cache_object.cached import CachedModel, CachedField
 
 
 class FieldFunctionBase(object):

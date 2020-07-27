@@ -6,7 +6,7 @@ from flask import Flask
 from marshmallow.schema import SchemaMeta, BaseSchema as _BaseSchema
 from six import string_types
 
-from flask_schema.mixins import _MixinBase
+from flask_serializer.mixins import _MixinBase
 
 
 # 重写metaclass, 处理一些fields
@@ -83,7 +83,7 @@ def schema_maker(db, meta):
     return NewSchemaMeta("BaseSchema", (BaseSchema,), dict(Meta=meta, db=db))
 
 
-class FlaskSchema(object):
+class FlaskSerializer(object):
     def __init__(self, app=None, db=None, **schema_meta):
         """
         :param schema_meta: meta config for marshmallow Schema
@@ -109,5 +109,5 @@ class FlaskSchema(object):
 
         schema_class = schema_maker(db, self.schema_meta)
         # FieldFunctionBase.db = db
-        app.extensions['flaskschema'] = schema_class
+        app.extensions['flaskserializer'] = schema_class
         self.Schema = schema_class

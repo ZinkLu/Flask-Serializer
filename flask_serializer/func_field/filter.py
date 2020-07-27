@@ -4,7 +4,7 @@ from collections import defaultdict
 from sqlalchemy import true
 from sqlalchemy.sql.operators import like_op, ilike_op
 
-from flask_schema.utils.empty import Empty
+from flask_serializer.utils.empty import Empty
 from . import FieldFunctionBase
 
 PROCESSOR = defaultdict(lambda: lambda x: x)

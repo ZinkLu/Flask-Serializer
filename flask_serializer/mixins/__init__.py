@@ -1,6 +1,6 @@
 from marshmallow import post_load
 
-from flask_schema.cache_object.cached import CachedModel
+from flask_serializer.cache_object.cached import CachedModel
 
 
 class _MixinBase(object):

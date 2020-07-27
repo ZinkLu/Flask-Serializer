@@ -4,7 +4,7 @@ from marshmallow import post_load, validates_schema
 from marshmallow.exceptions import ValidationError
 from sqlalchemy import inspect
 
-from flask_schema.mixins import _MixinBase
+from flask_serializer.mixins import _MixinBase
 
 
 class DetailMixIn(_MixinBase):

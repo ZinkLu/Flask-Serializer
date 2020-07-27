@@ -5,7 +5,7 @@ import os
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 
-from flask_schema import FlaskSchema
+from flask_serializer import FlaskSerializer
 
 app = Flask(__name__)
 
@@ -26,4 +26,4 @@ app.config["SQLALCHEMY_ECHO"] = True
 db = SQLAlchemy(app)
 session = db.session
 
-fs = FlaskSchema(app, strict=False)
+fs = FlaskSerializer(app, strict=False)
