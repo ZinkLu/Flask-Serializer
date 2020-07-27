@@ -1,0 +1,8 @@
+sqlalchemy
+marshmallow
+Flask
+Flask-sqlalchemy
+pytest
+psycopg2-binary
+pymysql
+six
