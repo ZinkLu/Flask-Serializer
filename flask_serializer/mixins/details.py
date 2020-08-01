@@ -84,7 +84,9 @@ class DetailMixIn(_MixinBase):
                 foreign_ids = _data.get(func_foreign.field_name)
                 if isinstance(foreign_ids, list):
                     func_foreign.update_foreign(_id, foreign_ids)
-
+        
+        self.db.session.add(instance)
+        self.db.session.flush()
         return instance
 
     @post_load

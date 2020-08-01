@@ -28,13 +28,15 @@ pip install flask-serializer
 
 ## 3. 使用
 
+示例代码可以看[这里]("examples/examples.py")
+
 如果你已经十分熟悉了marshmallow的使用, 你可以直接跳过3.3
 
 ### 3.1 初始化
 
 如同其他的flask插件, flask-serializer的初始化也很简单; 
 
-> 注意: 由于依赖flask-SQLAlchemy, flask-serializer应该在其之后进行
+> 注意: 由于依赖flask-SQLAlchemy, flask-serializer应该在其之后进行初始化
 
 ```python
 from flask import Flask
@@ -43,7 +45,7 @@ from flask_serializer import FlaskSerializer
 
 app = Flask(__name__)
 
-app.config["SQLALCHEMY_DATABASE_URI"] = 'postgresql://postgres:postgres@localhost:5432/test'
+app.config["SQLALCHEMY_DATABASE_URI"] = 'postgresql://postgres@localhost:5432/test'
 
 db = SQLAlchemy(app)
 session = db.session
@@ -67,8 +69,6 @@ class BaseSchema(fs.Schema):
 1. 模型基类, 提供所有模型的通用字段
 
     ```python
-    db = SQLAlchemy(app)
-
     now = datetime.datetime.now
 
     class Status:
@@ -86,6 +86,9 @@ class BaseSchema(fs.Schema):
         def delete(self):
             self.is_active = Status.INVALID
             return self.id
+
+        def __repr__(self):
+            return f"<{self.__class__.__name__}:{self.id}>"
     ```
 
 2. 订单模型
@@ -160,8 +163,8 @@ class BaseSchema(fs.Schema):
     product = Product(**instance_data)
 
     session.add(product)
-    session.commit()
     session.flush()
+    session.commit()
     ```
 
 2. 或者使用marshmallow自带的post_load方法
@@ -222,6 +225,8 @@ class BaseSchema(fs.Schema):
     data = ps_with_meta.dump(product_instance)
     ```
 
+序列化可以直接使用marshmallow方法, 这里我们主要介绍反序列化方法
+
 ### 3.4 使用DetailMixIn进行反序列化
 
 上面我们看到, 第二种方法还是比较Nice的(官网文档中也有事例), 他直接使用了marshmallow post_load方法, 对结果进行后处理, 得到一个Product对象, 实际上DetailMix就是实现了这样方法的一个拓展类.
@@ -256,9 +261,14 @@ class BaseSchema(fs.Schema):
     
     ps = ProductSchema()
     product_instance = ps.load(raw_data)
-
-    data = product_instance = ps.dump(ps)
+    session.commit()
     ```
+
+    ```sh
+    <Product:1>
+    ```
+
+    > 注意: DetailMixIn 会调用flush()方法, 除非session开启了autocommit, 否则不会提交你的事务(autocommit也是新创建了一个子事务, 不会提交当前主事务), 请开启flask_sqlalchemy的自动提交事务功能或者手动提交
 
 > `__model__`说明: 如果有导入问题, `__model__`支持设置字符串并在稍后的代码中自动读取SQLAlchemy的metadata并且自动设置对应的Model类
 >
@@ -280,11 +290,16 @@ class BaseSchema(fs.Schema):
     ps = ProductSchema(partial=True)  # partial参数可以使得required的字段不进行验证, 适合更新操作
 
     product_instance = ps.load(raw_data)
+    session.commit()
+    ```
 
-    data = ps.dump(product_instance)
+    ```sh
+    <Product:1>
     ```
 
     > 如果只是想读取这个模型, 而不想更新, 只需要传入主键值行就行
+    > 
+    > TODO: 以后可以加入`ReadOnlyDetailMixIN`
 
 还有一些其他的特性, 我们在进阶中再看, 配合上SQLAlchemy的relationship, 还可以实现更多.
 
@@ -295,6 +310,141 @@ DetailMixIn支持的是增改操作(实际上也支持删除, 但未来需要添
 下面是不同的ListMixIn的使用
 
 #### 3.5.1 ListModelMixin
+
+ListModelMinIn 顾名思义是针对某个模型的查询, 其反序列化的结果自然是模型实例的列表
+
+为了让用户的输入能够转化成我们想要的查询, 这里使用`Filter`对象作为参数`filter`传入`Field`的初始化中
+
+1. 基本使用
+
+    ```python
+    from flask_serializer.mixins.lists import ListModelMixin
+    from sqlalchemy.sql.operators import eq as eq_op
+
+    class ProductListSchema(ListModelMixin, BaseSchema):
+        __model__ = Product
+
+        product_name = fields.String(filter=Filter(eq_op))
+    ```
+
+    此时, 我们接口接收到输入的参数, 我们这样: 
+
+    ```python
+    raw_data = {
+        "product_name": "A-GREAT-PRODUCT",
+    }
+
+    pls = ProductListSchema()
+
+    product_list = pls.load(raw_data)
+    ```
+
+    ```sh
+    Traceback (most recent call last):
+    ....
+    marshmallow.exceptions.ValidationError: {'_schema': ['分页信息错误, 必须提供limit/offset或者page/size']}
+    ```
+
+    阿偶, 报错了, 实际上, ListModelMixin中会去自动检查Limit/Offset或者Page/Size这样的参数, 如果你不想让数据库爆炸, 可别忘记传入这两个参数!
+
+    ```python
+    raw_data["page"] = 1
+    raw_data["size"] = 10
+    product_list = pls.load(raw_data)
+    ```
+
+    ```sh
+    [<Product:1>]
+    ```
+
+2. 排序\*
+   
+    如果想使用排序, 可以重写这一个方法
+    
+    ```python
+    class ProductListSchema(ListModelMixin, BaseSchema):
+        __model__ = Product
+
+        product_name = fields.String(filter=Filter(eq_op))
+
+        def order_by(self, data):
+            return self.model.update_date.desc()
+    ```
+
+    注意了, `self.model`可以安全的取到设置的`__model__`指代的对象, 无论它被设置成字符串还是Model类.
+
+    > \* 这方方法可能需要重新设计一下, 我们可以将其变成一个属性而不是提供一个可重写的方法, 除非排序非常复杂
+
+#### 3.5.2 Filter参数说明
+
+ 1. `operator`, 这代表着将要对某一个字段做什么样的操作, 这个参数应该是`sqlalchemy.sql.operators`下提供的函数, Filter会自动套用这些函数, 将转化成对应的WHERE语句, 上面的例子中, 我们最终得到的SQL就是这样的
+
+     ```sql
+     SELECT * FROM product WHERE product_name = 'A-GREAT-PRODUCT' ORDER BY product.update_date DESC
+     ```
+
+ 2. `field`, 如果不设置, 他将默认使用`__model__`下面的同名Column进行过滤, 所以, 当你的Schema和Model的Filed对不上时, 也可以这样搞
+
+     ```python
+     class ProductListSchema(ListModelMixin, BaseSchema):
+         __model__ = Product
+
+         name = fields.String(filter=Filter(eq_op, Product.product_name))
+     ```
+
+     这时, 我们的接口文档中还定义的是`product_name`, Schema将读不到该值, 所以, 接口文档, shecma, model中定义的字段名字可能都不一样, 但是他们指代的同一个东西是, 你还可以这么做: 
+
+     ```python
+     class ProductListSchema(ListModelMixin, BaseSchema):
+         __model__ = Product
+
+         name = fields.String(load_from="product_name", filter=Filter(eq_op, Product.product_name))
+     ```
+
+     `laod_from`是marshmallow自带的参数, 他将告诉Field对象从哪里取值.
+
+     自然, `field`也可以被设置为字符串
+
+     ```python
+     class ProductListSchema(ListModelMixin, BaseSchema):
+         __model__ = Product
+
+         name = fields.String(filter=Filter(eq_op, "Product.product_name"))
+    ```
+
+    对于`field`参数, 还可以设置为其他模型的Column, 我们放到进阶部分去讲吧
+
+3. `value_process`对即将进行查询的值进行处理, 一般情况下用在诸如`like`的操作上
+   
+    ```python
+    from sqlalchemy.sql.operator import like_op
+
+    class ProductListSchema(ListModelMixin, BaseSchema):
+        __model__ = Product
+
+        name = fields.String(filter=Filter(like_op, value_process=lambda x: f"%{x}%"))
+    
+    raw_data = {
+        "product_name": "PRODUCT",
+        "limit": 10,
+        "offset": 0
+    }
+
+    pls = ProductListSchema()
+
+    product_list = pls.load(raw_data)
+    print(product_list)
+    ```
+
+    ```sql
+    SELECT * FROM product WHERE product_name LIKE '%PRODUCT%'
+    ```
+
+    ```sh
+    [<Product:1>]
+    ```
+
+    事实上, `value_process`也有默认值, 如果你使用`like_op`或者`ilke_op`则会自动在value后面加上`%`(右模糊匹配)
 
 #### 3.5.2 ListMixin
 

@@ -17,7 +17,7 @@ class PreLoadListMixin:
     """
 
     @pre_load
-    def split_into_list(self, data):
+    def split_into_list(self, data, *args, **kwargs):
         """
         自动转化所有Str to ListField
         :param data
@@ -118,7 +118,7 @@ class ListModelMixin(ListBase):
         raise ValidationError("分页信息错误, 必须提供limit/offset或者page/size")
 
     @post_load
-    def convert_page_to_limit(self, data):
+    def convert_page_to_limit(self, data, *args, **kwargs):
         """将page转换成limit"""
         if data.get("page"):
             limit = data["size"]

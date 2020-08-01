@@ -27,7 +27,7 @@ class Filter(FieldFunctionBase):
 
     def __init__(self, operator, field=None, value_process=True, default=Empty, **extra):
         """:type operator callable"""
-        self.filter_field = field
+        self.column = field
         self.operator = operator
         self.extra = extra
         self.value_process = value_process
@@ -37,7 +37,7 @@ class Filter(FieldFunctionBase):
         """
         :param value: 需要查询的值, 如果没有设置值则使用default, 如果default没有设置则使用true来代替?
         """
-        field = self.filter_field
+        field = self.column
 
         # 如果没有传值但是设置了默认值, 使用默认值代替value, 否则使用true来作为占位符
         if value is Empty:
