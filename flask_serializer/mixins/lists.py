@@ -144,7 +144,7 @@ class ListMixin(ListModelMixin):
         return self.db.session.query(*self._get_query(data))
 
 
-class CountMixIn(ListBase):
+class CountMixin(ListBase):
 
     def get_query(self, data):
         return self.db.session.query(func.count()).select_from(self.model)

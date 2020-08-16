@@ -227,18 +227,18 @@ class BaseSchema(fs.Schema):
 
 序列化可以直接使用marshmallow方法, 这里我们主要介绍反序列化方法
 
-### 3.4 使用DetailMixIn进行反序列化
+### 3.4 使用DetailMixin进行反序列化
 
 上面我们看到, 第二种方法还是比较Nice的(官网文档中也有事例), 他直接使用了marshmallow post_load方法, 对结果进行后处理, 得到一个Product对象, 实际上DetailMix就是实现了这样方法的一个拓展类.
 
-1. 使用DetailMixIn进行模型创建:
+1. 使用DetailMixin进行模型创建:
    
     很简单, 导入DetailMixIN后使得刚才的ProductSchema继承DetailMixIN, 然后为添加`__model__`到类中, 设置这个Schema需要绑定的对象.
    
     ```python
     from marshmallow import Schema, fields
 
-    from flask_serializer.mixins.details import DetailMixIn 
+    from flask_serializer.mixins.details import DetailMixin 
 
     class BaseSchema(fs.Schema):
         id = fields.Integer()
@@ -246,7 +246,7 @@ class BaseSchema(fs.Schema):
         update_date = fields.DateTime(dump_only=True)
         is_active = fields.Boolean(dump_only=True)
     
-    class ProductSchema(DetailMixIn, BaseSchema):
+    class ProductSchema(DetailMixin, BaseSchema):
         __model__ = Product
 
         product_name = fields.String(required=True)
@@ -268,18 +268,18 @@ class BaseSchema(fs.Schema):
     <Product:1>
     ```
 
-    > 注意: DetailMixIn 会调用flush()方法, 除非session开启了autocommit, 否则不会提交你的事务(autocommit也是新创建了一个子事务, 不会提交当前主事务), 请开启flask_sqlalchemy的自动提交事务功能或者手动提交
+    > 注意: DetailMixin 会调用flush()方法, 除非session开启了autocommit, 否则不会提交你的事务(autocommit也是新创建了一个子事务, 不会提交当前主事务), 请开启flask_sqlalchemy的自动提交事务功能或者手动提交
 
 > `__model__`说明: 如果有导入问题, `__model__`支持设置字符串并在稍后的代码中自动读取SQLAlchemy的metadata并且自动设置对应的Model类
 >
 >    ```python
->    class ProductSchema(DetailMixIn, Schema):
+>    class ProductSchema(DetailMixin, Schema):
 >        __model__ = "Product"
 >    ```
 
-2. 使用DetailMixIn进行模型更新
+2. 使用DetailMixin进行模型更新
 
-    既然有创建就有更新, DetailMixIn能够自动读取`__model__`里面的主键(前提是model主键必须唯一), 当在读取到原始数据中的主键时, load方法会自动更新而不是创建这个模型. 当然, 也不要忘记在schema中定义你的主键字段.
+    既然有创建就有更新, DetailMixin能够自动读取`__model__`里面的主键(前提是model主键必须唯一), 当在读取到原始数据中的主键时, load方法会自动更新而不是创建这个模型. 当然, 也不要忘记在schema中定义你的主键字段.
 
     ```python
     raw_data = {
@@ -303,15 +303,15 @@ class BaseSchema(fs.Schema):
 
 还有一些其他的特性, 我们在进阶中再看, 配合上SQLAlchemy的relationship, 还可以实现更多.
 
-### 3.5 使用ListMixIn进行查询
+### 3.5 使用ListMixin进行查询
 
-DetailMixIn支持的是增改操作(实际上也支持删除, 但未来需要添加专门用来删除的MixIn), 而ListMixIn支持查询的操作.
+DetailMixin支持的是增改操作(实际上也支持删除, 但未来需要添加专门用来删除的Mixin), 而ListMixin支持查询的操作.
 
-下面是不同的ListMixIn的使用
+下面是不同的ListMixin的使用
 
 #### 3.5.1 ListModelMixin
 
-ListModelMinIn 顾名思义是针对某个模型的查询, 其反序列化的结果自然是模型实例的列表
+ListModelMixin 顾名思义是针对某个模型的查询, 其反序列化的结果自然是模型实例的列表
 
 为了让用户的输入能够转化成我们想要的查询, 这里使用`Filter`对象作为参数`filter`传入`Field`的初始化中
 
@@ -375,7 +375,7 @@ ListModelMinIn 顾名思义是针对某个模型的查询, 其反序列化的结
 
     > \* 这方方法可能需要重新设计一下, 我们可以将其变成一个属性而不是提供一个可重写的方法, 除非排序非常复杂
 
-#### 3.5.2 Filter参数说明
+#### 3.5.2 Filter类参数说明
 
  1. `operator`, 这代表着将要对某一个字段做什么样的操作, 这个参数应该是`sqlalchemy.sql.operators`下提供的函数, Filter会自动套用这些函数, 将转化成对应的WHERE语句, 上面的例子中, 我们最终得到的SQL就是这样的
 
@@ -398,23 +398,27 @@ ListModelMinIn 顾名思义是针对某个模型的查询, 其反序列化的结
      class ProductListSchema(ListModelMixin, BaseSchema):
          __model__ = Product
 
-         name = fields.String(load_from="product_name", filter=Filter(eq_op, Product.product_name))
+         name = fields.String(data_key="product_name", filter=Filter(eq_op, Product.product_name))
      ```
 
-     `laod_from`是marshmallow自带的参数, 他将告诉Field对象从哪里取值.
+     `data_key`是marshmallow自带的参数, 他将告诉Field对象从哪里取值.
 
-     自然, `field`也可以被设置为字符串
+     > 在Marshmallow2中, 这个参数叫`load_from`和`dump_from`, 现在合并了, 但实际上好像适用范围变小了.
+
+     同样的, `field`也可以被设置为字符串, 且可以省略model的名称
 
      ```python
      class ProductListSchema(ListModelMixin, BaseSchema):
          __model__ = Product
 
-         name = fields.String(filter=Filter(eq_op, "Product.product_name"))
+         name = fields.String(data_key="product_name", filter=Filter(eq_op, "product_name"))
     ```
 
     对于`field`参数, 还可以设置为其他模型的Column, 我们放到进阶部分去讲吧
 
 3. `value_process`对即将进行查询的值进行处理, 一般情况下用在诸如`like`的操作上
+
+    `value_procee`支持传入一个`callable`对象, 并且只接受一个参数, 返回值该参数的处理.
    
     ```python
     from sqlalchemy.sql.operator import like_op
@@ -422,7 +426,7 @@ ListModelMinIn 顾名思义是针对某个模型的查询, 其反序列化的结
     class ProductListSchema(ListModelMixin, BaseSchema):
         __model__ = Product
 
-        name = fields.String(filter=Filter(like_op, value_process=lambda x: f"%{x}%"))
+        product_name = fields.String(filter=Filter(eq_op, value_process=lambda x: f"%{x}%"))
     
     raw_data = {
         "product_name": "PRODUCT",
@@ -444,11 +448,144 @@ ListModelMinIn 顾名思义是针对某个模型的查询, 其反序列化的结
     [<Product:1>]
     ```
 
-    事实上, `value_process`也有默认值, 如果你使用`like_op`或者`ilke_op`则会自动在value后面加上`%`(右模糊匹配)
+    > 事实上, `value_process`也有默认值, 如果你使用`like_op`或者`ilike_op`则会自动在value后面加上`%`(右模糊匹配)
 
-#### 3.5.2 ListMixin
+    > 其实`pre_load`装饰器也可以预处理值, 但是我认为不需要写太多了预处理方法
 
-## 进阶
+4. `default`默认值.
+
+    有时可能会有不传值使用默认值进行过滤的情况, 可以设置`default`方法.
+
+    > 这个场景下不能设置marshmallow的Field对象的default参数, 因为这个default是给dump方法用的, 而不是load方法.
+
+    让我们先来删除刚才创建的product
+
+    ```python
+    # delete a product
+    for product in product_list:
+        product.delete()
+    
+    session.flush()
+    session.commit()
+    ```
+
+    然后我们创建这样一个Schema, 将自动过滤掉软删除的记录
+    
+    ```python
+    class ProductListSchema(ListModelMixin, BaseSchema):
+        __model__ = Product
+
+        is_active = fields.Boolean(filter=Filter(eq_op, default=True))
+
+        product_name = fields.String(filter=Filter(eq_op))
+
+
+    raw_data = {
+        "product_name": "A-GREAT-PRODUCT",
+        "limit": 10,
+        "offset": 0
+    }
+
+    pls = ProductListSchema()
+
+    print(pls.load(raw_data))
+    ```
+
+    ```sh
+    []
+    ```
+
+#### 3.5.3 ListMixin
+
+和ListModelMixin的差别就是这个方法这对一个`Model`进行全部查询, 而是会对指定的一些字段进行查询, 这样可以避免一些额外的性能开销, 只查询你感兴趣的字段. 并且可以完成跨模型的字段查询.
+
+ListMixin需要一个`Query`对象来告诉他需要查询的字段
+
+1. 基本使用:
+
+    ```python
+    from flask_serializer.func_field.filter import Filter
+    from flask_serializer.func_filed.query import Query
+    from flask_serializer.mixins.lists import ListMixin
+    from sqlalchemy.sql.operators import eq as eq_op
+
+    class ProductListSchema(ListMixin, BaseSchema):
+        __model__ = Product
+
+        product_name = fields.String(filter=Filter(eq_op), query=Query())
+    ```
+
+    同样的, 让我们输入参数
+
+    ```python
+    raw_data = {
+        "page": 1,
+        "size": 10,
+        "product_name": "A-GREAT-PRODUCT",
+    }
+
+    pls = ProductListSchema()
+
+    product_list = pls.load(raw_data)
+    ```
+
+    这是时候我们得到的不再是`Product`的实例列表, 而是`sqlalchemy.util._collections.result`对象, 这种数据结构有一点像具名元组, 可以进行下标索引和`.`操作, 但是他只包含你查询的字段, 不包含任何其他多余的字段, 因此:
+
+    ```python
+    product = product_list[0]  # 如果没有的话记得新建一条记录哦!
+
+    print(product.product_name)
+    print(product[0])
+    ```
+
+    ```sh
+    A-GREAT-PRODUCT
+    A-GREAT-PRODUCT
+    ```
+
+#### 3.5.4 Query的参数说明
+
+1. `field`
+   
+    可以是一个SQLAlchemy的Column对象, 也可以是能够被正确指向Column的字符串. 这个参数将会告诉Query查询的字段到底是什么, 如果不填写则直接使用当前`field`的名称对应`__model__`字段进行查询.
+
+    其实`field`完全可以设置另外一个模型的字段, 如果这两个模型之间有外键的关联, SQLAlchemy会自动为我们拼接上Join语句, 并且加上正确的On条件, 如果这两个模型没有直接外键的关联, 也可以重写`def modify_before_query(self, query, data)`方法来增加自己的Join条件, 我们放到高级部分去讲解.
+
+2. `label`
+
+    label参数相当于SQL语句中的`AS`
+
+    ```python
+    class ProductListSchema(ListMixin, BaseSchema):
+        __model__ = Product
+
+        product_name = fields.String(filter=Filter(eq_op), query=Query(label="name"))
+    
+    pls = ProductListSchema()
+
+    product = pls.load(raw_data)[0]
+
+    print(product.name)
+
+    product.product_name # raise a AttributeError
+    ```
+
+    ```sh
+    A-GREAT-PRODUCT
+
+    Traceback (most recent call last):
+    File xxxxxx
+        print(product.product_name)
+    AttributeError: 'result' object has no attribute 'product_name'
+    ```
+
+## 4 进阶
+
+### 3.6.1 结合Nest和relationship完成骚操作
+
+### 3.6.2 外键检查
+
+### 3.6.3 联合过滤
 
 ## 已知问题
 
@@ -461,3 +598,5 @@ ListModelMinIn 顾名思义是针对某个模型的查询, 其反序列化的结
 2. JsonSchema自动转换成Marshallmallow-Schema.
 
 3. DeleteMixIN, 支持批量删除的Serializer.
+
+4. ...
