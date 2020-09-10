@@ -45,7 +45,7 @@ class NewSchemaMeta(SchemaMeta):
     def __init__(self, name, bases, attrs):
         super(NewSchemaMeta, self).__init__(name, bases, attrs)
 
-        if not getattr(self, "__model__", None) and not issubclass(self, _MixinBase):
+        if not getattr(self, "__model__", None) or not issubclass(self, _MixinBase):
             return
 
         model = self.__model__
